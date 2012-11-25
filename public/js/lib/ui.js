@@ -1,22 +1,25 @@
 define(function() {
   var exports = {};
 
-  function UI(canvas, sprites) {
-    this.canvas = canvas;
-    this.sprites = sprites;
+  function UI(options) {
+    this.canvas = options.canvas;
+    this.sprites = options.sprites;
     this.width = 1;
     this.height = 1;
 
-    this.ctx = canvas.getContext('2d');
+    this.ctx = this.canvas.getContext('2d');
     this.ctx.mozspritesmoothingEnabled = false;
     this.ctx.webkitspritesmoothingEnabled = false;
     this.ctx.msspritesmoothingEnabled = false;
 
-    this.cellWidth = 64;
-    this.cellHeight = 32;
+    this.cellWidth = options.cellWidth;
+    this.cellHeight = options.cellHeight;
+    this.cx = 0;
+    this.cy = 0;
 
     this.items = [];
     this.center = null;
+    this.player = null;
     this._changed = false;
 
     this.init();
@@ -72,10 +75,10 @@ define(function() {
     this.ctx.save();
 
     var center = this.project(this.center.x, this.center.y, this.center.z);
-    var cx = Math.round(this.width / 2 - center.x);
-    var cy = Math.round(this.height / 2 - center.y);
+    this.cx = Math.round(this.width / 2 - center.x);
+    this.cy = Math.round(this.height / 2 - center.y);
 
-    this.ctx.translate(cx, cy);
+    this.ctx.translate(this.cx, this.cy);
 
     this.sortItems();
     this.renderItems();
@@ -107,50 +110,66 @@ define(function() {
   };
 
   function round(x) {
-    return x > 0 ? (x | 0) : -((-x) | 0);
+    return Math.round(x);
   }
 
   UI.prototype.renderItems = function renderItems() {
-    var firstZ = round(this.items[0] && this.items[0].z || 0),
-        lastZ = round(this.items[this.items.length - 1] &&
-                          this.items[this.items.length - 1].z || 0),
+    var firstZ = this.items[0] && this.items[0].rz || 0,
+        lastZ = this.items[this.items.length - 1] &&
+                this.items[this.items.length - 1].rz || 0,
         centerZ = round(this.center.z);
 
     if (firstZ < centerZ + 1) {
       firstZ = centerZ + 1;
     }
 
+    var seenPlayer = false;
+
     document.location.hash = firstZ;
     for (var i = 0; i < this.items.length; i++) {
-      var block = this.items[i],
-          z = round(block.z);
+      var item = this.items[i],
+          z = item.rz;
 
       // Maximum visible depth is limited
       if (z - centerZ  >= 5) continue;
 
       this.ctx.save();
-      if (centerZ - z > 0) {
-        // Items above the player transparent
-        this.ctx.globalAlpha = 0.4;
-      } else if (centerZ === z) {
-        // Items above the player transparent
-      } else if (firstZ != z) {
-        // Apply shadow
+      if (seenPlayer && this.covers(item, this.player)) {
+        // Items covering player are transparent
+        this.ctx.globalAlpha = 0.3;
+      } else if (centerZ < z && firstZ > z) {
+        // Apply shadow do items below player
         this.ctx.save();
         this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        this.ctx.fillRect(-this.width / 2, -this.height / 2,
+        this.ctx.fillRect(-this.cx, -this.cy,
                           this.width, this.height);
         this.ctx.restore();
         firstZ = z;
       }
 
-      block.render(this.ctx);
+      if (item === this.player) seenPlayer = true;
+
+      item.render(this.ctx);
       this.ctx.restore();
     }
   };
 
+  UI.prototype.covers = function covers(a, b) {
+    if (Item.lineCompare(a, b) <= 0) return false;
+
+    var dx = a.projectionRX - b.projectionRX;
+        dy = a.projectionRY - b.projectionRY,
+        radius = dx * dx + dy * dy;
+
+    return radius < 9000;
+  };
+
   UI.prototype.setCenter = function setCenter(x, y, z) {
     this.center = { x: x, y: y, z: z};
+  };
+
+  UI.prototype.setPlayer = function setPlayer(item) {
+    this.player = item;
   };
 
   UI.prototype.add = function add(item) {
@@ -205,8 +224,6 @@ define(function() {
     this.projectionY = 0;
 
     this.ui = null;
-
-    this.onmove = null;
   };
   exports.Item = Item;
 
@@ -218,6 +235,10 @@ define(function() {
     // (just for comparison stability)
     if (a.rx + a.ry === b.rx + b.ry) return a._id - b._id;
 
+    return Item.lineCompare(a, b);
+  };
+
+  Item.lineCompare = function lineCompare(a, b) {
     return a.rx + a.ry - b.rx - b.ry;
   };
 
@@ -234,9 +255,16 @@ define(function() {
     this.ry = round(y);
     this.rz = round(z);
 
+    // Move map if player has moved
+    if (this === this.ui.player) this.ui.setCenter(this.x, this.y, this.z);
+
     var p = this.ui.project(x, y, z);
     this.projectionX = p.x;
     this.projectionY = p.y;
+
+    var p = this.ui.project(this.rx, this.ry, this.rz);
+    this.projectionRX = p.x;
+    this.projectionRY = p.y;
 
     this.ui._changed = true;
   };

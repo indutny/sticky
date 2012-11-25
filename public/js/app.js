@@ -11,9 +11,14 @@ require([
 ], function(sprites, ui, player, block) {
   // Load all sprites first
   sprites.load(function onsprites(sprites) {
-    var field = ui.create(document.getElementById('field'), sprites);
+    var field = ui.create({
+      canvas: document.getElementById('field'),
+      sprites: sprites,
+      cellWidth: 64,
+      cellHeight: 32
+    });
 
-    var w = 40;
+    var w = 10;
     for (var x = -w + 1; x < w; x++) {
       for (var y = -w + 1; y < w; y++) {
         var k = Math.random();
@@ -22,18 +27,23 @@ require([
     }
 
     for (var x = -w + 1; x < w; x++) {
-      field.add(block.create(x, 0, -1, 'block'));
-      field.add(block.create(x, 0, -2, 'block'));
+      if (x % 3) {
+        field.add(block.create(x, 0, -1, 'block'));
+        field.add(block.create(x, 0, -2, 'block'));
+      }
       field.add(block.create(x, 0, -3, 'block'));
       if (x !== 0) {
-        field.add(block.create(0, x, -1, 'block'));
-        field.add(block.create(0, x, -2, 'block'));
+        if (x % 3) {
+          field.add(block.create(0, x, -1, 'block'));
+          field.add(block.create(0, x, -2, 'block'));
+        }
         field.add(block.create(0, x, -3, 'block'));
       }
     }
 
-    var p = player.create(0, 0, -1);
+    var p = player.create(1, 1, -1);
     field.add(p);
+    field.setPlayer(p);
     field.setCenter(p.x, p.y, p.z);
 
     window.addEventListener('keydown', function onkeydown(e) {
