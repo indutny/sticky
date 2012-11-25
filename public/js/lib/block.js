@@ -16,9 +16,9 @@ define([ 'util', 'ui' ], function(util, ui) {
     return new Block(x, y, z, kind);
   };
 
-  Block.prototype.init = function init(ui) {
-    Block.super_.prototype.init.call(this, ui);
-    this.image = ui.sprites[this.kind] || ui.sprites.block;
+  Block.prototype.init = function init(zone) {
+    Block.super_.prototype.init.call(this, zone);
+    this.image = this.ui.sprites[this.kind] || this.ui.sprites.block;
   };
 
   Block.prototype.render = function render(ctx) {

@@ -15,12 +15,12 @@ define([ 'util', 'ui' ], function(util, ui) {
     return new Player(x, y, z);
   };
 
-  Player.prototype.init = function init(ui) {
-    Player.super_.prototype.init.call(this, ui);
+  Player.prototype.init = function init(zone) {
+    Player.super_.prototype.init.call(this, zone);
 
     this.sprites = {
-      normal: ui.sprites.player,
-      flying: ui.sprites['player-flying']
+      normal: this.ui.sprites.player,
+      flying: this.ui.sprites['player-flying']
     };
   };
 

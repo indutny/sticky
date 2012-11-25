@@ -14,10 +14,11 @@ define(function() {
 
     this.cellWidth = options.cellWidth;
     this.cellHeight = options.cellHeight;
+    this.zoneSize = options.zoneSize;
     this.cx = 0;
     this.cy = 0;
 
-    this.items = [];
+    this.zones = [];
     this.center = null;
     this.player = null;
     this._changed = false;
@@ -50,6 +51,11 @@ define(function() {
     });
   };
 
+  UI.prototype.addZone = function addZone(zone) {
+    zone.init(this);
+    this.zones.push(zone);
+  };
+
   UI.prototype.resize = function resize(width, height) {
     this._changed = true;
     this.width = this.canvas.width = width;
@@ -80,13 +86,51 @@ define(function() {
 
     this.ctx.translate(this.cx, this.cy);
 
-    this.sortItems();
-    this.renderItems();
+    for (var i = 0; i < this.zones.length; i++) {
+      this.zones[i].render(this.ctx);
+    }
 
     this.ctx.restore();
   };
 
-  UI.prototype.sortItems = function sortItems() {
+  function round(x) {
+    return Math.round(x);
+  };
+
+  UI.prototype.setCenter = function setCenter(x, y, z) {
+    this.center = { x: x, y: y, z: z};
+  };
+
+  UI.prototype.setPlayer = function setPlayer(item) {
+    this.player = item;
+  };
+
+  UI.prototype.handlePlayerMove = function handlePlayerMove() {
+    this.setCenter(this.player.x, this.player.y, this.player.z);
+  };
+
+  // Zone is a container of items
+  function Zone(x, y, z) {
+    this.items = [];
+
+    this.ui = null;
+  };
+  exports.Zone = Zone;
+
+  Zone.create = function create(x, y, z) {
+    return new Zone(x, y, z);
+  };
+
+  Zone.prototype.init = function init(ui) {
+    this.ui = ui;
+  };
+
+  Zone.prototype.render = function render(ctx) {
+    this.sortItems();
+    this.renderItems(ctx);
+  };
+
+  Zone.prototype.sortItems = function sortItems() {
     var misses = [];
     for (var i = 0; i < this.items.length - 1; i++) {
       var current = this.items[i],
@@ -109,15 +153,11 @@ define(function() {
     }
   };
 
-  function round(x) {
-    return Math.round(x);
-  }
-
-  UI.prototype.renderItems = function renderItems() {
+  Zone.prototype.renderItems = function renderItems(ctx) {
     var firstZ = this.items[0] && this.items[0].rz || 0,
         lastZ = this.items[this.items.length - 1] &&
                 this.items[this.items.length - 1].rz || 0,
-        centerZ = round(this.center.z);
+        centerZ = round(this.ui.center.z);
 
     if (firstZ < centerZ + 1) {
       firstZ = centerZ + 1;
@@ -125,7 +165,6 @@ define(function() {
 
     var seenPlayer = false;
 
-    document.location.hash = firstZ;
     for (var i = 0; i < this.items.length; i++) {
       var item = this.items[i],
           z = item.rz;
@@ -133,51 +172,33 @@ define(function() {
       // Maximum visible depth is limited
       if (z - centerZ  >= 5) continue;
 
-      this.ctx.save();
-      if (seenPlayer && this.covers(item, this.player)) {
+      ctx.save();
+      if (seenPlayer && item.covers(this.ui.player)) {
         // Items covering player are transparent
-        this.ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.3;
       } else if (centerZ < z && firstZ > z) {
         // Apply shadow do items below player
-        this.ctx.save();
-        this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        this.ctx.fillRect(-this.cx, -this.cy,
-                          this.width, this.height);
-        this.ctx.restore();
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(-this.ui.cx, -this.ui.cy,
+                     this.ui.width, this.ui.height);
+        ctx.restore();
         firstZ = z;
       }
 
-      if (item === this.player) seenPlayer = true;
+      if (item === this.ui.player) seenPlayer = true;
 
-      item.render(this.ctx);
-      this.ctx.restore();
+      item.render(ctx);
+      ctx.restore();
     }
   };
 
-  UI.prototype.covers = function covers(a, b) {
-    if (Item.lineCompare(a, b) <= 0) return false;
-
-    var dx = a.projectionRX - b.projectionRX;
-        dy = a.projectionRY - b.projectionRY,
-        radius = dx * dx + dy * dy;
-
-    return radius < 9000;
-  };
-
-  UI.prototype.setCenter = function setCenter(x, y, z) {
-    this.center = { x: x, y: y, z: z};
-  };
-
-  UI.prototype.setPlayer = function setPlayer(item) {
-    this.player = item;
-  };
-
-  UI.prototype.add = function add(item) {
+  Zone.prototype.add = function add(item) {
     item.init(this);
     this.insert(item);
   };
 
-  UI.prototype.insert = function insert(item) {
+  Zone.prototype.insert = function insert(item) {
     // Fast case
     if (this.items.length === 0) {
       this.items.push(item);
@@ -223,6 +244,7 @@ define(function() {
     this.projectionX = 0;
     this.projectionY = 0;
 
+    this.zone = null;
     this.ui = null;
   };
   exports.Item = Item;
@@ -242,9 +264,20 @@ define(function() {
     return a.rx + a.ry - b.rx - b.ry;
   };
 
-  Item.prototype.init = function init(ui) {
-    this.ui = ui;
+  Item.prototype.init = function init(zone) {
+    this.zone = zone;
+    this.ui = zone.ui;
     this.setPosition(this.x, this.y, this.z);
+  };
+
+  Item.prototype.covers = function covers(item) {
+    if (Item.lineCompare(this, item) <= 0) return false;
+
+    var dx = this.projectionRX - item.projectionRX;
+        dy = this.projectionRY - item.projectionRY,
+        radius = dx * dx + dy * dy;
+
+    return radius < 9000;
   };
 
   Item.prototype.setPosition = function setPosition(x, y, z) {
@@ -256,7 +289,7 @@ define(function() {
     this.rz = round(z);
 
     // Move map if player has moved
-    if (this === this.ui.player) this.ui.setCenter(this.x, this.y, this.z);
+    if (this === this.ui.player) this.ui.handlePlayerMove(this);
 
     var p = this.ui.project(x, y, z);
     this.projectionX = p.x;
