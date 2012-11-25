@@ -24,8 +24,8 @@ define([ 'util', 'ui' ], function(util, ui) {
   Block.prototype.render = function render(ctx) {
     Block.super_.prototype.render.call(this, ctx);
     ctx.drawImage(this.image.elem,
-                  this.point.x - 32,
-                  this.point.y - 16,
+                  this.projectionX - 32,
+                  this.projectionY - 16,
                   this.image.width,
                   this.image.height);
   };

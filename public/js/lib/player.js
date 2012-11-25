@@ -46,22 +46,19 @@ define([ 'util', 'ui' ], function(util, ui) {
         endZ = self.z + dz;
 
     this.state = 'flying';
+
     animate(function() {
-      self.z -= 0.03;
+      self._move(0, 0, -0.03);
     }, 6, 30, function() {
       var times = 6;
       animate(function() {
-        self.x += dx / times;
-        self.y += dy / times;
-        self.z += dz / times;
+        self._move(dx / times, dy / times, dz / times);
       }, times, 30, function() {
         self.state = 'normal';
         animate(function() {
-          self.z += 0.06;
+          self._move(0, 0, 0.06);
         }, 3, 30, function() {
-          self.x = endX;
-          self.y = endY;
-          self.z = endZ;
+          self.setPosition(endX, endY, endZ);
           self.moving = false;
         });
       });
@@ -72,8 +69,8 @@ define([ 'util', 'ui' ], function(util, ui) {
     Player.super_.prototype.render.call(this, ctx);
 
     ctx.drawImage(this.sprites[this.state].elem,
-                  this.point.x - 32,
-                  this.point.y - 12,
+                  this.projectionX - 32,
+                  this.projectionY - 12,
                   this.sprites[this.state].width,
                   this.sprites[this.state].height);
   };

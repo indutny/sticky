@@ -13,7 +13,7 @@ require([
   sprites.load(function onsprites(sprites) {
     var field = ui.create(document.getElementById('field'), sprites);
 
-    var w = 10;
+    var w = 40;
     for (var x = -w + 1; x < w; x++) {
       for (var y = -w + 1; y < w; y++) {
         var k = Math.random();

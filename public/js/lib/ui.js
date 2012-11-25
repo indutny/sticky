@@ -17,6 +17,7 @@ define(function() {
 
     this.items = [];
     this.center = null;
+    this._changed = false;
 
     this.init();
   };
@@ -28,7 +29,7 @@ define(function() {
   UI.prototype.init = function init() {
     var self = this;
 
-    // Resize field with window
+    // Resize UI on window resize
     function onresize() {
       self.resize(window.innerWidth, window.innerHeight);
     }
@@ -47,6 +48,7 @@ define(function() {
   };
 
   UI.prototype.resize = function resize(width, height) {
+    this._changed = true;
     this.width = this.canvas.width = width;
     this.height = this.canvas.height = height;
   };
@@ -59,6 +61,9 @@ define(function() {
   };
 
   UI.prototype.render = function render() {
+    if (!this._changed) return;
+    this._changed = false;
+
     this.ctx.save();
     this.ctx.fillStyle = 'black';
     this.ctx.fillRect(0, 0, this.width, this.height);
@@ -85,8 +90,8 @@ define(function() {
           next = this.items[i + 1];
 
       if (Item.compare(current, next) > 0) {
-        misses.push(current);
-        this.items.splice(i, 1);
+        misses.push(next);
+        this.items.splice(i + 1, 1);
         i--;
       }
     }
@@ -188,53 +193,60 @@ define(function() {
 
   var itemId = 0;
   function Item(x, y, z) {
-    this.id = itemId++;
+    this._id = itemId++;
     this.x = x;
     this.y = y;
     this.z = z;
-    this._x = null;
-    this._y = null;
-    this._z = null;
-    this.point = null;
-    this.field = null;
+    this.rx = x;
+    this.ry = y;
+    this.rz = z;
+
+    this.projectionX = 0;
+    this.projectionY = 0;
+
+    this.ui = null;
 
     this.onmove = null;
   };
   exports.Item = Item;
 
   Item.compare = function compare(a, b) {
-    var ax = round(a.x),
-        ay = round(a.y),
-        az = round(a.z),
-        bx = round(b.x),
-        by = round(b.y),
-        bz = round(b.z);
-
-    if (az > bz) return -1;
-    if (az < bz) return 1;
+    if (a.rz > b.rz) return -1;
+    if (a.rz < b.rz) return 1;
 
     // If items on the same line - sort them by id
     // (just for comparison stability)
-    if (ax + ay === bx + by) return a.id - b.id;
+    if (a.rx + a.ry === b.rx + b.ry) return a._id - b._id;
 
-    return ax + ay - bx - by;
+    return a.rx + a.ry - b.rx - b.ry;
   };
 
-  Item.prototype.init = function init(field) {
-    this.field = field;
+  Item.prototype.init = function init(ui) {
+    this.ui = ui;
+    this.setPosition(this.x, this.y, this.z);
   };
+
+  Item.prototype.setPosition = function setPosition(x, y, z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.rx = round(x);
+    this.ry = round(y);
+    this.rz = round(z);
+
+    var p = this.ui.project(x, y, z);
+    this.projectionX = p.x;
+    this.projectionY = p.y;
+
+    this.ui._changed = true;
+  };
+
+  Item.prototype.move = function move(dx, dy, dz) {
+    this.setPosition(this.x + dx, this.y + dy, this.z + dz);
+  };
+  Item.prototype._move = Item.prototype.move;
 
   Item.prototype.render = function render(ctx) {
-    // Use cached projection if not changed
-    if (this._x !== this.x || this._y !== this.y || this._z !== this.z) {
-      this.point = this.field.project(this.x, this.y, this.z);
-      this._x = this.x;
-      this._y = this.y;
-      this._z = this.z;
-
-      // Emit onmove
-      if (this.onmove) this.onmove();
-    }
   };
 
   return exports;
