@@ -16,7 +16,7 @@ require([
       sprites: sprites,
       cellWidth: 64,
       cellHeight: 32,
-      zoneSize: 4
+      zoneSize: 6
     });
 
     var p = player.create(1, 1, -1);
@@ -44,6 +44,32 @@ require([
         field.add(block.create(0, x, -3, 'block'));
       }
     }
+
+    field.on('zone:load', function (lx, ly, lz, rx, ry, rz) {
+      if (lz + rz !== -2) return;
+
+      for (var x = lx; x < rx; x++) {
+        for (var y = ly; y < ry; y++) {
+          var k = Math.random();
+          field.add(block.create(x, y, 0, 'grass'));
+        }
+      }
+
+      for (var x = Math.min(lx, ly); x < Math.max(rx, ry); x++) {
+        if (x % 3) {
+          field.add(block.create(x, 0, -1, 'block'));
+          field.add(block.create(x, 0, -2, 'block'));
+        }
+        field.add(block.create(x, 0, -3, 'block'));
+        if (x !== 0) {
+          if (x % 3) {
+            field.add(block.create(0, x, -1, 'block'));
+            field.add(block.create(0, x, -2, 'block'));
+          }
+          field.add(block.create(0, x, -3, 'block'));
+        }
+      }
+    });
 
     window.addEventListener('keydown', function onkeydown(e) {
       var code = e.keyCode;

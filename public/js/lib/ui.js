@@ -1,7 +1,9 @@
-define(function() {
+define([ 'util', 'ee2' ], function(util, EventEmitter) {
   var exports = {};
 
   function UI(options) {
+    EventEmitter.call(this);
+
     this.canvas = options.canvas;
     this.sprites = options.sprites;
     this.width = 1;
@@ -27,6 +29,7 @@ define(function() {
 
     this.init();
   };
+  util.inherits(UI, EventEmitter);
   exports.UI = UI;
   exports.create = function create(canvas, sprites) {
     return new UI(canvas, sprites);
@@ -54,12 +57,10 @@ define(function() {
   };
 
   UI.prototype.add = function add(item) {
-    for (var i = 0; i < this.zones.length; i++) {
-      if (this.zones[i].contains(item)) {
-        this.zones[i].add(item);
-        break;
-      }
-    }
+    var zone = this.getZone(item.x, item.y, item.z);
+    if (!zone) return;
+
+    zone.add(item);
   };
 
   UI.prototype.resize = function resize(width, height) {
@@ -116,33 +117,87 @@ define(function() {
     return Math.round(x);
   };
 
+  UI.prototype.getZone = function getZone(x, y, z) {
+    for (var i = 0; i < this.zones.length; i++) {
+      if (this.zones[i].containsRaw(x, y, z)) {
+        return this.zones[i];
+      }
+    }
+
+    return false;
+  };
+
   UI.prototype.addZone = function addZone(zone) {
     zone.init(this);
     this.zones.push(zone);
   };
 
-  UI.prototype.setCenter = function setCenter(x, y, z) {
+  UI.prototype._setCenter = function setCenter(x, y, z, zoneChanged) {
     this.center = { x: x, y: y, z: z};
+
+    if (this.zones.length !== 0 && !zoneChanged) return;
+
+    var configs = [
+      [-1, -1, -1], [0, -1, -1], [1, -1, -1],
+      [-1, 0, -1],  [0, 0, -1],  [1, 0, -1],
+      [-1, 1, -1],  [0, 1, -1],  [1, 1, -1],
+      [-1, -1, 0],  [0, -1, 0],  [1, -1, 0],
+      [-1, 0, 0],   [0, 0, 0],   [1, 0, 0],
+      [-1, 1, 0],   [0, 1, 0],   [1, 1, 0],
+      [-1, -1, 1],  [0, -1, 1],  [1, -1, 1],
+      [-1, 0, 1],   [0, 0, 1],   [1, 0, 1],
+      [-1, 1, 1],   [0, 1, 1],   [1, 1, 1]
+    ];
 
     if (this.zones.length === 0) {
       // Create inital zones
-      var arr = [
-        [-1, -1, -1], [0, -1, -1], [1, -1, -1],
-        [-1, 0, -1],  [0, 0, -1],  [1, 0, -1],
-        [-1, 1, -1],  [0, 1, -1],  [1, 1, -1],
-        [-1, -1, 0],  [0, -1, 0],  [1, -1, 0],
-        [-1, 0, 0],   [0, 0, 0],   [1, 0, 0],
-        [-1, 1, 0],   [0, 1, 0],   [1, 1, 0],
-        [-1, -1, 1],  [0, -1, 1],  [1, -1, 1],
-        [-1, 0, 1],   [0, 0, 1],   [1, 0, 1],
-        [-1, 1, 1],   [0, 1, 1],   [1, 1, 1]
-      ];
 
-      for (var i = 0; i < arr.length; i++) {
-        var conf = arr[i];
+      for (var i = 0; i < configs.length; i++) {
+        var conf = configs[i];
         this.addZone(new Zone(x + conf[0] * 2 * this.zoneSize,
                               y + conf[1] * 2 * this.zoneSize,
                               z + conf[2] * 2 * this.zoneSize));
+      }
+    } else {
+      var cx = this.player.zone.x,
+          cy = this.player.zone.y,
+          cz = this.player.zone.z;
+
+      var valid = [],
+          queue = [];
+
+      // Create new zones
+      for (var i = 0; i < configs.length; i++) {
+        var zone,
+            conf = configs[i],
+            zx = cx + conf[0] * (this.zoneSize + 1),
+            zy = cy + conf[1] * (this.zoneSize + 1),
+            zz = cz + conf[2] * (this.zoneSize + 1),
+            newx = cx + conf[0] * 2 * this.zoneSize,
+            newy = cy + conf[1] * 2 * this.zoneSize,
+            newz = cz + conf[2] * 2 * this.zoneSize;
+
+        // Zone already exists
+        if (!(zone = this.getZone(zx, zy, zz))) {
+          zone = new Zone(newx, newy, newz);
+          queue.push(zone);
+          this.addZone(zone);
+        }
+        valid.push(zone);
+      }
+
+      // Remove invalid ones
+      for (var i = 0; i < this.zones.length; i++) {
+        if (valid.indexOf(this.zones[i]) !== -1) continue;
+        this.zones.splice(i, 1);
+        i--;
+      }
+
+      // Load new onews
+      for (var i = 0; i < queue.length; i++) {
+        var zone = queue[i];
+        this.emit('zone:load', zone.lx, zone.ly, zone.lz,
+                               zone.rx, zone.ry, zone.rz);
       }
     }
 
@@ -151,18 +206,17 @@ define(function() {
 
   UI.prototype.setPlayer = function setPlayer(item) {
     this.player = item;
-    this.setCenter(item.x, item.y, item.z);
+    this._setCenter(item.x, item.y, item.z);
     this.add(item);
   };
 
   UI.prototype.handleMove = function handlePlayerMove(item) {
-    // Set center and allocate new zones (if needed)
-    if (this.player === item) {
-      this.setCenter(this.player.x, this.player.y, this.player.z);
-    }
+    var zoneChanged = false;
 
     // Move item to another zone (or remove it) if needed
     if (!item.zone.contains(item)) {
+      zoneChanged = true;
+
       var index = item.zone.items.indexOf(item);
       if (index !== -1) {
         item.zone.items.splice(index, 1);
@@ -170,11 +224,15 @@ define(function() {
 
       for (var i = 0; i < this.zones.length; i++) {
         if (this.zones[i].contains(item)) {
-          console.log('yay?');
           this.zones[i].add(item);
           break;
         }
       }
+    }
+
+    // Set center and allocate new zones (if needed)
+    if (this.player === item) {
+      this._setCenter(this.player.x, this.player.y, this.player.z, zoneChanged);
     }
   };
 
@@ -212,9 +270,13 @@ define(function() {
   var obj = {};
 
   Zone.prototype.contains = function contains(item) {
-    return this.lx <= item.rx && item.rx < this.rx &&
-           this.ly <= item.ry && item.ry < this.ry &&
-           this.lz <= item.rz && item.rz < this.rz;
+    return this.containsRaw(item.rx, item.ry, item.rz);
+  };
+
+  Zone.prototype.containsRaw = function containsRaw(x, y, z) {
+    return this.lx <= x && x < this.rx &&
+           this.ly <= y && y < this.ry &&
+           this.lz <= z && z < this.rz;
   };
 
   Zone.compare = function compare(a, b) {
