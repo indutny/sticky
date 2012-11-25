@@ -18,7 +18,9 @@ define(function() {
     this.cx = 0;
     this.cy = 0;
 
+    // Nine zones
     this.zones = [];
+
     this.center = null;
     this.player = null;
     this._changed = false;
@@ -51,9 +53,13 @@ define(function() {
     });
   };
 
-  UI.prototype.addZone = function addZone(zone) {
-    zone.init(this);
-    this.zones.push(zone);
+  UI.prototype.add = function add(item) {
+    for (var i = 0; i < this.zones.length; i++) {
+      if (this.zones[i].contains(item)) {
+        this.zones[i].add(item);
+        break;
+      }
+    }
   };
 
   UI.prototype.resize = function resize(width, height) {
@@ -76,18 +82,31 @@ define(function() {
     this.ctx.save();
     this.ctx.fillStyle = 'black';
     this.ctx.fillRect(0, 0, this.width, this.height);
-    this.ctx.restore();
-
-    this.ctx.save();
 
     var center = this.project(this.center.x, this.center.y, this.center.z);
     this.cx = Math.round(this.width / 2 - center.x);
     this.cy = Math.round(this.height / 2 - center.y);
 
-    this.ctx.translate(this.cx, this.cy);
-
+    // Sort items in zones
     for (var i = 0; i < this.zones.length; i++) {
-      this.zones[i].render(this.ctx);
+      this.zones[i].sort();
+    }
+
+    var centerZ = round(this.center.z);
+
+    // Draw items in zones level-by-level
+    for (var i = 5; i >= -5; i--) {
+      if (i > 0) {
+        this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+      }
+
+      for (var j = 0; j < this.zones.length; j++) {
+        this.ctx.save();
+        this.ctx.translate(this.cx, this.cy);
+        this.zones[j].render(this.ctx, i + centerZ);
+        this.ctx.restore();
+      }
     }
 
     this.ctx.restore();
@@ -97,40 +116,115 @@ define(function() {
     return Math.round(x);
   };
 
+  UI.prototype.addZone = function addZone(zone) {
+    zone.init(this);
+    this.zones.push(zone);
+  };
+
   UI.prototype.setCenter = function setCenter(x, y, z) {
     this.center = { x: x, y: y, z: z};
+
+    if (this.zones.length === 0) {
+      // Create inital zones
+      var arr = [
+        [-1, -1, -1], [0, -1, -1], [1, -1, -1],
+        [-1, 0, -1],  [0, 0, -1],  [1, 0, -1],
+        [-1, 1, -1],  [0, 1, -1],  [1, 1, -1],
+        [-1, -1, 0],  [0, -1, 0],  [1, -1, 0],
+        [-1, 0, 0],   [0, 0, 0],   [1, 0, 0],
+        [-1, 1, 0],   [0, 1, 0],   [1, 1, 0],
+        [-1, -1, 1],  [0, -1, 1],  [1, -1, 1],
+        [-1, 0, 1],   [0, 0, 1],   [1, 0, 1],
+        [-1, 1, 1],   [0, 1, 1],   [1, 1, 1]
+      ];
+
+      for (var i = 0; i < arr.length; i++) {
+        var conf = arr[i];
+        this.addZone(new Zone(x + conf[0] * 2 * this.zoneSize,
+                              y + conf[1] * 2 * this.zoneSize,
+                              z + conf[2] * 2 * this.zoneSize));
+      }
+    }
+
+    this.zones.sort(Zone.compare);
   };
 
   UI.prototype.setPlayer = function setPlayer(item) {
     this.player = item;
+    this.setCenter(item.x, item.y, item.z);
+    this.add(item);
   };
 
-  UI.prototype.handlePlayerMove = function handlePlayerMove() {
-    this.setCenter(this.player.x, this.player.y, this.player.z);
+  UI.prototype.handleMove = function handlePlayerMove(item) {
+    // Set center and allocate new zones (if needed)
+    if (this.player === item) {
+      this.setCenter(this.player.x, this.player.y, this.player.z);
+    }
+
+    // Move item to another zone (or remove it) if needed
+    if (!item.zone.contains(item)) {
+      var index = item.zone.items.indexOf(item);
+      if (index !== -1) {
+        item.zone.items.splice(index, 1);
+      }
+
+      for (var i = 0; i < this.zones.length; i++) {
+        if (this.zones[i].contains(item)) {
+          console.log('yay?');
+          this.zones[i].add(item);
+          break;
+        }
+      }
+    }
   };
 
   // Zone is a container of items
   function Zone(x, y, z) {
     this.items = [];
+    this.x = x;
+    this.y = y;
+    this.z = z;
+
+    this.lx = 0;
+    this.ly = 0;
+    this.lz = 0;
+    this.rx = 0;
+    this.ry = 0;
+    this.rz = 0;
 
     this.ui = null;
   };
   exports.Zone = Zone;
 
-  Zone.create = function create(x, y, z) {
-    return new Zone(x, y, z);
-  };
-
   Zone.prototype.init = function init(ui) {
     this.ui = ui;
+
+    // Left-top bounds
+    this.lx = this.x - this.ui.zoneSize;
+    this.ly = this.y - this.ui.zoneSize;
+    this.lz = this.z - this.ui.zoneSize;
+
+    // Right-bottom bounds
+    this.rx = this.x + this.ui.zoneSize;
+    this.ry = this.y + this.ui.zoneSize;
+    this.rz = this.z + this.ui.zoneSize;
+  };
+  var obj = {};
+
+  Zone.prototype.contains = function contains(item) {
+    return this.lx <= item.rx && item.rx < this.rx &&
+           this.ly <= item.ry && item.ry < this.ry &&
+           this.lz <= item.rz && item.rz < this.rz;
   };
 
-  Zone.prototype.render = function render(ctx) {
-    this.sortItems();
-    this.renderItems(ctx);
+  Zone.compare = function compare(a, b) {
+    if (a.rz > b.rz) return -1;
+    if (a.rz < b.rz) return 1;
+
+    return a.rx + a.ry - b.rx - b.ry;
   };
 
-  Zone.prototype.sortItems = function sortItems() {
+  Zone.prototype.sort = function sort() {
     var misses = [];
     for (var i = 0; i < this.items.length - 1; i++) {
       var current = this.items[i],
@@ -153,40 +247,17 @@ define(function() {
     }
   };
 
-  Zone.prototype.renderItems = function renderItems(ctx) {
-    var firstZ = this.items[0] && this.items[0].rz || 0,
-        lastZ = this.items[this.items.length - 1] &&
-                this.items[this.items.length - 1].rz || 0,
-        centerZ = round(this.ui.center.z);
-
-    if (firstZ < centerZ + 1) {
-      firstZ = centerZ + 1;
-    }
-
-    var seenPlayer = false;
-
+  Zone.prototype.render = function render(ctx, z) {
     for (var i = 0; i < this.items.length; i++) {
-      var item = this.items[i],
-          z = item.rz;
+      var item = this.items[i];
 
-      // Maximum visible depth is limited
-      if (z - centerZ  >= 5) continue;
+      if (z !== item.rz) continue;
 
       ctx.save();
-      if (seenPlayer && item.covers(this.ui.player)) {
+      if (z <= this.ui.player.rz && item.covers(this.ui.player)) {
         // Items covering player are transparent
         ctx.globalAlpha = 0.3;
-      } else if (centerZ < z && firstZ > z) {
-        // Apply shadow do items below player
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(-this.ui.cx, -this.ui.cy,
-                     this.ui.width, this.ui.height);
-        ctx.restore();
-        firstZ = z;
       }
-
-      if (item === this.ui.player) seenPlayer = true;
 
       item.render(ctx);
       ctx.restore();
@@ -289,7 +360,7 @@ define(function() {
     this.rz = round(z);
 
     // Move map if player has moved
-    if (this === this.ui.player) this.ui.handlePlayerMove(this);
+    this.ui.handleMove(this);
 
     var p = this.ui.project(x, y, z);
     this.projectionX = p.x;
@@ -301,6 +372,7 @@ define(function() {
 
     this.ui._changed = true;
   };
+  Item.prototype._setPosition = Item.prototype.setPosition;
 
   Item.prototype.move = function move(dx, dy, dz) {
     this.setPosition(this.x + dx, this.y + dy, this.z + dz);

@@ -15,39 +15,35 @@ require([
       canvas: document.getElementById('field'),
       sprites: sprites,
       cellWidth: 64,
-      cellHeight: 32
+      cellHeight: 32,
+      zoneSize: 4
     });
 
-    var zone = ui.Zone.create();
-    field.addZone(zone);
+    var p = player.create(1, 1, -1);
+    field.setPlayer(p);
 
-    var w = 10;
+    var w = 100;
     for (var x = -w + 1; x < w; x++) {
       for (var y = -w + 1; y < w; y++) {
         var k = Math.random();
-        zone.add(block.create(x, y, 0, ((x + y) % 3) ? 'grass' : 'block'));
+        field.add(block.create(x, y, 0, ((x + y) % 3) ? 'grass' : 'block'));
       }
     }
 
     for (var x = -w + 1; x < w; x++) {
       if (x % 3) {
-        zone.add(block.create(x, 0, -1, 'block'));
-        zone.add(block.create(x, 0, -2, 'block'));
+        field.add(block.create(x, 0, -1, 'block'));
+        field.add(block.create(x, 0, -2, 'block'));
       }
-      zone.add(block.create(x, 0, -3, 'block'));
+      field.add(block.create(x, 0, -3, 'block'));
       if (x !== 0) {
         if (x % 3) {
-          zone.add(block.create(0, x, -1, 'block'));
-          zone.add(block.create(0, x, -2, 'block'));
+          field.add(block.create(0, x, -1, 'block'));
+          field.add(block.create(0, x, -2, 'block'));
         }
-        zone.add(block.create(0, x, -3, 'block'));
+        field.add(block.create(0, x, -3, 'block'));
       }
     }
-
-    var p = player.create(1, 1, -1);
-    zone.add(p);
-    field.setPlayer(p);
-    field.setCenter(p.x, p.y, p.z);
 
     window.addEventListener('keydown', function onkeydown(e) {
       var code = e.keyCode;
