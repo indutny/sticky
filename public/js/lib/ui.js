@@ -80,6 +80,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     if (!this._changed) return;
     this._changed = false;
 
+    this._timestamp = +new Date;
+
     this.ctx.save();
     this.ctx.fillStyle = 'black';
     this.ctx.fillRect(0, 0, this.width, this.height);
@@ -322,6 +324,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       }
 
       item.render(ctx);
+      item.postRender();
       ctx.restore();
     }
   };
@@ -377,6 +380,9 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.projectionX = 0;
     this.projectionY = 0;
 
+    this.sprite = null;
+
+    this.animation = [];
     this.zone = null;
     this.ui = null;
   };
@@ -441,7 +447,99 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   };
   Item.prototype._move = Item.prototype.move;
 
+  Item.prototype.animate = function animate(props, interval, callback) {
+    var self = this;
+
+    this.ui._changed = true;
+    this.animation.push(new ItemAnimation(this, props, interval, callback));
+  };
+
+  Item.prototype.reset = function reset() {
+    if (this.animation.length === 0) return;
+
+    var last = this.animation.pop();
+    this.animation = [];
+
+    last.end();
+  };
+
   Item.prototype.render = function render(ctx) {
+    // Nop
+  };
+
+  Item.prototype.postRender = function postRender() {
+    // Apply animation
+    if (this.animation.length === 0) return;
+
+    while (this.animation.length !== 0) {
+      var first = this.animation[0];
+
+      // Set start positions
+      first.init();
+
+      if (first.start + first.interval <= this.ui._timestamp) {
+        this.animation.shift();
+        first.end();
+        if (first.callback) first.callback();
+        this.ui._changed = true;
+        continue;
+      }
+
+      first.run(this.ui._timestamp);
+      this.ui._changed = true;
+      break;
+    }
+  };
+
+  function ItemAnimation(item, props, interval, callback) {
+    this.item = item;
+
+    this.props = props;
+    this.sprite = props.sprite;
+    this.startX = null;
+    this.startY = null;
+    this.startZ = null;
+    this.x = null;
+    this.y = null;
+    this.z = null;
+
+    this.start = null;
+    this.interval = interval,
+
+    this.callback = callback;
+  };
+
+  ItemAnimation.prototype.init = function init() {
+    if (this.start !== null) return;
+
+    this.start = +new Date;
+    this.x = this.startX = this.item.x;
+    this.y = this.startY = this.item.y;
+    this.z = this.startZ = this.item.z;
+
+    var names = [ 'x', 'y', 'z' ];
+
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i];
+      if (this.props.hasOwnProperty(name)) {
+        this[name] = this.props[name];
+      } else if (this.props.hasOwnProperty('d' + name)) {
+        this[name] += this.props['d' + name];
+      }
+    }
+  };
+
+  ItemAnimation.prototype.run = function run(timestamp) {
+    var percent = (timestamp - this.start) / this.interval;
+
+    this.item.setPosition(this.startX + (this.x - this.startX) * percent,
+                          this.startY + (this.y - this.startY) * percent,
+                          this.startZ + (this.z - this.startZ) * percent);
+  };
+
+  ItemAnimation.prototype.end = function end() {
+    this.item.setPosition(this.x, this.y, this.z);
+    if (this.sprite) this.item.sprite = this.sprite;
   };
 
   return exports;

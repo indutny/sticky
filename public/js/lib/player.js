@@ -4,8 +4,6 @@ define([ 'util', 'ui' ], function(util, ui) {
   function Player(x, y, z) {
     ui.Item.call(this, x, y, z);
     this.type = 'player';
-    this.state = 'normal';
-
     this.moving = false;
   };
   util.inherits(Player, ui.Item);
@@ -22,57 +20,29 @@ define([ 'util', 'ui' ], function(util, ui) {
       normal: this.ui.sprites.player,
       flying: this.ui.sprites['player-flying']
     };
-  };
-
-  function animate(fn, times, interval, cb) {
-    function run() {
-      fn();
-      if (--times > 0) return setTimeout(run, interval);
-      cb();
-    }
-    run();
+    this.sprite = this.sprites.normal;
   };
 
   Player.prototype.move = function move(dx, dy, dz) {
     var self = this;
-
-    if (this.moving) {
-      return;
-    }
+    if (this.moving) return;
     this.moving = true;
 
-    var endX = self.x + dx,
-        endY = self.y + dy,
-        endZ = self.z + dz;
-
-    this.state = 'flying';
-
-    animate(function() {
-      self._move(0, 0, -0.03);
-    }, 6, 30, function() {
-      var times = 6;
-      animate(function() {
-        self._move(dx / times, dy / times, dz / times);
-      }, times, 30, function() {
-        self.state = 'normal';
-        animate(function() {
-          self._move(0, 0, 0.06);
-        }, 3, 30, function() {
-          self.setPosition(endX, endY, endZ);
-          self.moving = false;
-        });
-      });
+    this.animate({ dz: -0.3, sprite: this.sprites.flying }, 120);
+    this.animate({ dx: dx, dy: dy, dz: dz }, 150);
+    this.animate({ dz: 0.3, sprite: this.sprites.normal }, 60, function() {
+      self.moving = false;
     });
   };
 
   Player.prototype.render = function render(ctx) {
     Player.super_.prototype.render.call(this, ctx);
 
-    ctx.drawImage(this.sprites[this.state].elem,
+    ctx.drawImage(this.sprite.elem,
                   this.projectionX - 32,
                   this.projectionY - 12,
-                  this.sprites[this.state].width,
-                  this.sprites[this.state].height);
+                  this.sprite.width,
+                  this.sprite.height);
   };
 
   return exports;

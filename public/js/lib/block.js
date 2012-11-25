@@ -7,6 +7,7 @@ define([ 'util', 'ui' ], function(util, ui) {
     this.width = 50;
 
     this.type = 'block';
+    this.sprite = null;
     this.kind = kind;
   };
   util.inherits(Block, ui.Item);
@@ -18,16 +19,16 @@ define([ 'util', 'ui' ], function(util, ui) {
 
   Block.prototype.init = function init(zone) {
     Block.super_.prototype.init.call(this, zone);
-    this.image = this.ui.sprites[this.kind] || this.ui.sprites.block;
+    this.sprite = this.ui.sprites[this.kind] || this.ui.sprites.block;
   };
 
   Block.prototype.render = function render(ctx) {
     Block.super_.prototype.render.call(this, ctx);
-    ctx.drawImage(this.image.elem,
+    ctx.drawImage(this.sprite.elem,
                   this.projectionX - 32,
                   this.projectionY - 16,
-                  this.image.width,
-                  this.image.height);
+                  this.sprite.width,
+                  this.sprite.height);
   };
 
   return exports;
