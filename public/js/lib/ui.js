@@ -4,6 +4,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   function UI(options) {
     EventEmitter.call(this);
 
+    this.options = options;
+
     this.canvas = options.canvas;
     this.sprites = options.sprites;
     this.width = 1;
@@ -40,7 +42,16 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
     // Resize UI on window resize
     function onresize() {
-      self.resize(window.innerWidth, window.innerHeight);
+      var width = window.innerWidth,
+          height = window.innerHeight;
+
+      if (typeof self.options.maxWidth === 'number') {
+        width = Math.min(width, self.options.maxWidth);
+      }
+      if (typeof self.options.maxHeight === 'number') {
+        height = Math.min(height, self.options.maxHeight);
+      }
+      self.resize(width, height);
     }
     window.addEventListener('resize', onresize);
     onresize();
@@ -67,6 +78,10 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this._changed = true;
     this.width = this.canvas.width = width;
     this.height = this.canvas.height = height;
+
+    // Center canvas
+    this.canvas.style.marginLeft = (window.innerWidth - width) / 2 + 'px';
+    this.canvas.style.marginTop = (window.innerHeight - height) / 2 + 'px';
   };
 
   UI.prototype.project = function project(x, y, z) {
@@ -86,16 +101,15 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.ctx.fillStyle = 'black';
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    var center = this.project(this.center.x, this.center.y, this.center.z);
-    this.cx = Math.round(this.width / 2 - center.x);
-    this.cy = Math.round(this.height / 2 - center.y);
+    var centerZ = round(this.center.z);
+
+    this.cx = round(this.width / 2 - this.centerProjection.x);
+    this.cy = round(this.height / 2 - this.centerProjection.y);
 
     // Sort items in zones
     for (var i = 0; i < this.zones.length; i++) {
       this.zones[i].sort();
     }
-
-    var centerZ = round(this.center.z);
 
     // Draw items in zones level-by-level
     for (var i = 5; i >= -5; i--) {
@@ -136,6 +150,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
   UI.prototype._setCenter = function setCenter(x, y, z, zoneChanged) {
     this.center = { x: x, y: y, z: z};
+    this.centerProjection = this.project(x, y, z);
 
     if (this.zones.length !== 0 && !zoneChanged) return;
 
@@ -159,6 +174,13 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
         this.addZone(new Zone(x + conf[0] * 2 * this.zoneSize,
                               y + conf[1] * 2 * this.zoneSize,
                               z + conf[2] * 2 * this.zoneSize));
+      }
+
+      // load new ones
+      for (var i = 0; i < this.zones.length; i++) {
+        var zone = this.zones[i];
+        this.emit('zone:load', zone.lx, zone.ly, zone.lz,
+                               zone.rx, zone.ry, zone.rz);
       }
     } else {
       var cx = this.player.zone.x,
@@ -195,7 +217,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
         i--;
       }
 
-      // Load new onews
+      // load new ones
       for (var i = 0; i < queue.length; i++) {
         var zone = queue[i];
         this.emit('zone:load', zone.lx, zone.ly, zone.lz,

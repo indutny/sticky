@@ -4,4 +4,9 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: black;
+}
+
+canvas#field {
+  box-shadow: 0 0 90px rgba(40, 60, 40, 0.8);
 }
