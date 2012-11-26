@@ -4,6 +4,7 @@ var http = require('http'),
 
 var app = connect();
 
+app.use(connect.staticCache());
 app.use(connect.static(__dirname + '/public'));
 
 var server = http.createServer(app);
