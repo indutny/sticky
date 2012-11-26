@@ -67,9 +67,21 @@ io.sockets.on('connection', function(client) {
     // Only one level exists so far
     if (zone.lz + zone.rz !== 0) return;
 
-    var blocks = [];
+    // Send all players in this zone to client
+    var items = [];
+    Object.keys(io.sockets.sockets).forEach(function(id) {
+      if (id === client.id) return;
+
+      var player = io.sockets.sockets[id].info.player;
+      if (zone.lx <= player.x && player.x < zone.rx &&
+          zone.ly <= player.y && player.y < zone.ry &&
+          zone.lz <= player.z && player.z < zone.rz) {
+        items.push(player);
+      }
+    });
+
     function sendBlock(x, y, z, kind) {
-      blocks.push({
+      items.push({
         id: Math.random(),
         type: 'block',
         kind: kind,
@@ -106,7 +118,7 @@ io.sockets.on('connection', function(client) {
       sendBlock(xc, y, -3, 'block');
     }
 
-    client.emit('s:items:new', blocks);
+    client.emit('s:items:new', items);
   });
 });
 
