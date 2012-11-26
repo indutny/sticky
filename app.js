@@ -10,6 +10,11 @@ var server = http.createServer(app);
 
 var io = socketio.listen(server);
 
+// No logging in production
+if (process.env.NODE_ENV === 'production') {
+  io.disable('log');
+}
+
 io.sockets.on('connection', function(client) {
   var player = {
     type: 'player',
