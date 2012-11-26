@@ -50,6 +50,15 @@ io.sockets.on('connection', function(client) {
   client.on('c:item:command', function(options) {
     if (options.id !== client.id) return;
 
+    if (io.sockets.sockets[options.id]) {
+      var player = io.sockets.sockets[options.id].info.player;
+
+      if (options.cmd === 'move') {
+        player.x += options.args.dx;
+        player.y += options.args.dy;
+        player.z += options.args.dz;
+      }
+    }
     io.sockets.emit('s:item:command', options);
   });
 
