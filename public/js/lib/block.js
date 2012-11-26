@@ -1,20 +1,20 @@
 define([ 'util', 'ui' ], function(util, ui) {
   var exports = {};
 
-  function Block(x, y, z, kind) {
-    ui.Item.call(this, x, y, z);
+  function Block(options) {
+    ui.Item.call(this, options);
 
     this.width = 50;
 
     this.type = 'block';
     this.sprite = null;
-    this.kind = kind;
+    this.kind = options.kind;
   };
   util.inherits(Block, ui.Item);
 
   exports.Block = Block;
-  exports.create = function create(x, y, z, kind) {
-    return new Block(x, y, z, kind);
+  exports.create = function create(options) {
+    return new Block(options);
   };
 
   Block.prototype.init = function init(zone) {

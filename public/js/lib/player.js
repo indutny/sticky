@@ -1,16 +1,15 @@
 define([ 'util', 'ui' ], function(util, ui) {
   var exports = {};
 
-  function Player(x, y, z) {
-    ui.Item.call(this, x, y, z);
+  function Player(options) {
+    ui.Item.call(this, options);
     this.type = 'player';
-    this.moving = false;
   };
   util.inherits(Player, ui.Item);
 
   exports.Player = Player;
-  exports.create = function create(x, y, z) {
-    return new Player(x, y, z);
+  exports.create = function create(options) {
+    return new Player(options);
   };
 
   Player.prototype.init = function init(zone) {
@@ -23,16 +22,20 @@ define([ 'util', 'ui' ], function(util, ui) {
     this.sprite = this.sprites.normal;
   };
 
-  Player.prototype.move = function move(dx, dy, dz) {
-    var self = this;
-    if (this.moving) return;
-    this.moving = true;
+  // Execute remote command
+  Player.prototype.command = function command(cmd, options, callback) {
+    if (Player.super_.prototype.command.call(this, cmd, options)) return;
 
-    this.animate({ dz: -0.3, sprite: this.sprites.flying }, 120);
-    this.animate({ dx: dx, dy: dy, dz: dz }, 150);
-    this.animate({ dz: 0.3, sprite: this.sprites.normal }, 60, function() {
-      self.moving = false;
-    });
+    var self = this;
+
+    if (cmd === 'move') {
+      this.reset();
+      this.animate({ dz: -0.3, sprite: this.sprites.flying }, 120);
+      this.animate({ dx: options.dx, dy: options.dy, dz: options.dz }, 150);
+      this.animate({ dz: 0.3, sprite: this.sprites.normal }, 60, callback);
+    } else {
+      return;
+    }
   };
 
   Player.prototype.render = function render(ctx) {

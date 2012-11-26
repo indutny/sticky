@@ -25,7 +25,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     // Nine zones
     this.zones = [];
 
-    this.center = null;
+    this.center = { x: 0, y: 0, z: 0 };
+    this.centerProjection = this.project(this.center);
     this.player = null;
     this._changed = false;
 
@@ -133,6 +134,13 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     return Math.round(x);
   };
 
+  UI.prototype.getItem = function getItem(id) {
+    for (var i = 0; i < this.zones.length; i++) {
+      var item = this.zones[i].getItem(id);
+      if (item) return item;
+    }
+  };
+
   UI.prototype.getZone = function getZone(x, y, z) {
     for (var i = 0; i < this.zones.length; i++) {
       if (this.zones[i].containsRaw(x, y, z)) {
@@ -166,6 +174,10 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       [-1, 1, 1],   [0, 1, 1],   [1, 1, 1]
     ];
 
+    x = Math.round(x / this.zoneSize) * this.zoneSize;
+    y = Math.round(y / this.zoneSize) * this.zoneSize;
+    z = Math.round(z / this.zoneSize) * this.zoneSize;
+
     if (this.zones.length === 0) {
       // Create inital zones
 
@@ -179,8 +191,14 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       // load new ones
       for (var i = 0; i < this.zones.length; i++) {
         var zone = this.zones[i];
-        this.emit('zone:load', zone.lx, zone.ly, zone.lz,
-                               zone.rx, zone.ry, zone.rz);
+        this.emit('zone:load', {
+          lx: zone.lx,
+          ly: zone.ly,
+          lz: zone.lz,
+          rx: zone.rx,
+          ry: zone.ry,
+          rz: zone.rz
+        });
       }
     } else {
       var cx = this.player.zone.x,
@@ -220,8 +238,14 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       // load new ones
       for (var i = 0; i < queue.length; i++) {
         var zone = queue[i];
-        this.emit('zone:load', zone.lx, zone.ly, zone.lz,
-                               zone.rx, zone.ry, zone.rz);
+        this.emit('zone:load', {
+          lx: zone.lx,
+          ly: zone.ly,
+          lz: zone.lz,
+          rx: zone.rx,
+          ry: zone.ry,
+          rz: zone.rz
+        });
       }
     }
 
@@ -230,6 +254,9 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
   UI.prototype.setPlayer = function setPlayer(item) {
     this.player = item;
+
+    // Reset zones
+    this.zones = [];
     this._setCenter(item.x, item.y, item.z);
     this.add(item);
   };
@@ -241,11 +268,10 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     if (!item.zone.contains(item)) {
       zoneChanged = true;
 
-      var index = item.zone.items.indexOf(item);
-      if (index !== -1) {
-        item.zone.items.splice(index, 1);
-      }
+      // Remove from it's current zone
+      item.remove();
 
+      // Readd to new zone (if any contains it)
       for (var i = 0; i < this.zones.length; i++) {
         if (this.zones[i].contains(item)) {
           this.zones[i].add(item);
@@ -276,6 +302,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.ry = 0;
     this.rz = 0;
 
+    this.map = {};
+
     this.ui = null;
   };
   util.inherits(Zone, EventEmitter);
@@ -304,6 +332,10 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     return this.lx <= x && x < this.rx &&
            this.ly <= y && y < this.ry &&
            this.lz <= z && z < this.rz;
+  };
+
+  Zone.prototype.getItem = function getItem(id) {
+    return this.map.hasOwnProperty(id) && this.map[id];
   };
 
   Zone.compare = function compare(a, b) {
@@ -343,9 +375,12 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       if (z !== item.rz) continue;
 
       ctx.save();
-      if (z <= this.ui.player.rz && item.covers(this.ui.player)) {
+
+      var coverage;
+      if (z <= this.ui.player.rz &&
+          (coverage = item.coverage(this.ui.player))) {
         // Items covering player are transparent
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = coverage;
       }
 
       item.render(ctx);
@@ -355,8 +390,19 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   };
 
   Zone.prototype.add = function add(item) {
+    if (this.map.hasOwnProperty(item.id)) return;
+
     item.init(this);
     this.insert(item);
+    this.map[item.id] = item;
+  };
+
+  Zone.prototype.remove = function remove(item) {
+    if (!this.map.hasOwnProperty(item.id)) return;
+
+    var index = this.items.indexOf(item);
+    if (index !== -1) this.items.splice(index, 1);
+    delete this.map[item.id];
   };
 
   Zone.prototype.insert = function insert(item) {
@@ -393,16 +439,14 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   };
 
   var itemId = 0;
-  function Item(x, y, z) {
+  function Item(options) {
     EventEmitter.call(this);
 
-    this._id = itemId++;
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.rx = x;
-    this.ry = y;
-    this.rz = z;
+    this.id = options.id;
+    this._sortId = itemId++;
+    this.rx = this.x = options.x;
+    this.ry = this.y = options.y;
+    this.rz = this.z = options.z;
 
     this.projectionX = 0;
     this.projectionY = 0;
@@ -410,6 +454,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.sprite = null;
 
     this.animation = [];
+    this._io = null;
     this.zone = null;
     this.ui = null;
   };
@@ -422,7 +467,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
     // If items on the same line - sort them by id
     // (just for comparison stability)
-    if (a.rx + a.ry === b.rx + b.ry) return a._id - b._id;
+    if (a.rx + a.ry === b.rx + b.ry) return a._sortId - b._sortId;
 
     return Item.lineCompare(a, b);
   };
@@ -437,14 +482,15 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.setPosition(this.x, this.y, this.z);
   };
 
-  Item.prototype.covers = function covers(item) {
+  Item.prototype.coverage = function coverage(item) {
     if (Item.lineCompare(this, item) <= 0) return false;
 
     var dx = this.projectionRX - item.projectionRX;
         dy = this.projectionRY - item.projectionRY,
         radius = dx * dx + dy * dy;
 
-    return radius < 9000;
+    if (radius > 9000) return 0;
+    return (3000 + radius) / 18000;
   };
 
   Item.prototype.setPosition = function setPosition(x, y, z) {
@@ -485,10 +531,12 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   Item.prototype.reset = function reset() {
     if (this.animation.length === 0) return;
 
-    var last = this.animation.pop();
+    for (var i = 0; i < this.animation.length; i++) {
+      var a = this.animation[i];
+      a.init();
+      a.end();
+    }
     this.animation = [];
-
-    last.end();
   };
 
   Item.prototype.render = function render(ctx) {
@@ -508,7 +556,6 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       if (first.start + first.interval <= this.ui._timestamp) {
         this.animation.shift();
         first.end();
-        if (first.callback) first.callback();
         this.ui._changed = true;
         continue;
       }
@@ -517,6 +564,28 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       this.ui._changed = true;
       break;
     }
+  };
+
+  Item.prototype.command = function command(cmd, options, callback) {
+    if (this._io) {
+      this._io.emit('c:item:command', { id: this.id, cmd: cmd, args: options });
+    }
+
+    if (cmd === 'remove') {
+      this.remove();
+      if (callback) callback();
+      return true;
+    }
+
+    return false;
+  };
+
+  Item.prototype.remove = function remove() {
+    this.zone.remove(this);
+  };
+
+  Item.prototype.broadcast = function broadcast(io) {
+    this._io = io;
   };
 
   function ItemAnimation(item, props, interval, callback) {
@@ -568,6 +637,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   ItemAnimation.prototype.end = function end() {
     this.item.setPosition(this.x, this.y, this.z);
     if (this.sprite) this.item.sprite = this.sprite;
+    if (this.callback) this.callback();
   };
 
   return exports;
