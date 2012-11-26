@@ -108,8 +108,9 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.cy = round(this.height / 2 - this.centerProjection.y);
 
     // Sort items in zones
-    for (var i = 0; i < this.zones.length; i++) {
-      this.zones[i].sort();
+    var zones = this.zones;
+    for (var i = 0; i < zones.length; i++) {
+      zones[i].sort();
     }
 
     // Draw items in zones level-by-level
@@ -119,10 +120,10 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
         this.ctx.fillRect(0, 0, this.width, this.height);
       }
 
-      for (var j = 0; j < this.zones.length; j++) {
+      for (var j = 0; j < zones.length; j++) {
         this.ctx.save();
         this.ctx.translate(this.cx, this.cy);
-        this.zones[j].render(this.ctx, i + centerZ);
+        zones[j].render(this.ctx, i + centerZ);
         this.ctx.restore();
       }
     }
@@ -228,12 +229,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
         valid.push(zone);
       }
 
-      // Remove invalid ones
-      for (var i = 0; i < this.zones.length; i++) {
-        if (valid.indexOf(this.zones[i]) !== -1) continue;
-        this.zones.splice(i, 1);
-        i--;
-      }
+      this.zones = valid;
 
       // load new ones
       for (var i = 0; i < queue.length; i++) {
