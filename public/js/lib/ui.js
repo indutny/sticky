@@ -262,6 +262,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
   // Zone is a container of items
   function Zone(x, y, z) {
+    EventEmitter.call(this);
+
     this.items = [];
     this.x = x;
     this.y = y;
@@ -276,6 +278,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
     this.ui = null;
   };
+  util.inherits(Zone, EventEmitter);
   exports.Zone = Zone;
 
   Zone.prototype.init = function init(ui) {
@@ -391,6 +394,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
 
   var itemId = 0;
   function Item(x, y, z) {
+    EventEmitter.call(this);
+
     this._id = itemId++;
     this.x = x;
     this.y = y;
@@ -408,6 +413,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.zone = null;
     this.ui = null;
   };
+  util.inherits(Item, EventEmitter);
   exports.Item = Item;
 
   Item.compare = function compare(a, b) {
