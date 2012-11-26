@@ -26,6 +26,13 @@ io.sockets.on('connection', function(client) {
   };
   client.info = { player: player };
 
+  client.on('disconnect', function() {
+    io.sockets.emit('s:item:command', {
+      id: player.id,
+      cmd: 'remove'
+    });
+  });
+
   // Send client's player to itself
   client.emit('s:item:new', player, true);
 
