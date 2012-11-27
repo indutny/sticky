@@ -119,6 +119,11 @@ io.sockets.on('connection', function(client) {
       sendBlock(xc, y, -3, 'block');
     }
 
+    // Create stairs
+    sendBlock(xc + 1, yc + 1, -2, 'block');
+    sendBlock(xc + 2, yc + 1, -1, 'block');
+    sendBlock(xc + 1, yc + 1, -1, 'block');
+
     client.emit('s:items:new', items);
   });
 });

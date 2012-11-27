@@ -38,8 +38,13 @@ require([
           p = player;
           field.setPlayer(p);
 
-          // Broadcast all commands
-          p.broadcast(io);
+          p.on('command', function(cmd, args) {
+            io.emit('c:item:command', {
+              id: player.id,
+              cmd: cmd,
+              args: args
+            });
+          });
           return;
         }
 
@@ -68,29 +73,19 @@ require([
       io.emit('c:zone:load', options);
     });
 
-    var moving = false;
     window.addEventListener('keydown', function onkeydown(e) {
       var code = e.keyCode;
 
-      if (p === null || moving) return;
-      moving = true;
-
-      function release() {
-        moving = false;
-      };
+      if (p === null || p.moving || p.falling) return;
 
       if (code === 37) {
-        p.command('move', { dx: -1, dy: 0, dz: 0 }, release);
+        p.command('move', { dx: -1, dy: 0, dz: 0 });
       } else if (code === 39) {
-        p.command('move', { dx: 1, dy: 0, dz: 0 }, release);
+        p.command('move', { dx: 1, dy: 0, dz: 0 });
       } else if (code == 38) {
-        p.command('move', { dx: 0, dy: -1, dz: 0 }, release);
+        p.command('move', { dx: 0, dy: -1, dz: 0 });
       } else if (code == 40) {
-        p.command('move', { dx: 0, dy: 1, dz: 0 }, release);
-      } else if (code == 32) {
-        p.command('move', { dx: 0, dy: 0, dz: -1 }, release);
-      } else if (code == 13) {
-        p.command('move', { dx: 0, dy: 0, dz: 1 }, release);
+        p.command('move', { dx: 0, dy: 1, dz: 0 });
       } else {
         release();
         return;

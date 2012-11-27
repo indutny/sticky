@@ -25,7 +25,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.cx = 0;
     this.cy = 0;
 
-    // 27 zones
+    // 27 zones, one for each side and one for center
     this.zones = [];
 
     this.center = { x: 0, y: 0, z: 0 };
@@ -138,7 +138,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     for (var i = 5; i >= -5; i--) {
       // Apply shadow between deep zones
       if (i > 0) {
-        this.ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
         this.ctx.fillRect(0, 0, this.width, this.height);
       }
 
@@ -300,7 +300,7 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   //
   // Callback invoked on item movement
   //
-  UI.prototype.handleMove = function handlePlayerMove(item) {
+  UI.prototype.handleMove = function handleMove(item) {
     var zoneChanged = false;
 
     // Move item to another zone (or remove it) if needed
@@ -323,6 +323,22 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     if (this.player === item) {
       this._setCenter(this.player.x, this.player.y, this.player.z, zoneChanged);
     }
+  };
+
+  //
+  // Return true if some zone contains obstacle at given cell
+  //
+  UI.prototype.hasObstacle = function hasObstacle(x, y, z) {
+    // First find zone containing point
+    var zone = this.getZone(x, y, z);
+
+    // Moving into space without zone is impossible
+    if (!zone) return true;
+
+    var item = zone.getItemAtPos(x, y,z);
+    if (!item) return false;
+
+    return item.obstacle ? item : false;
   };
 
   //
@@ -512,6 +528,53 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   };
 
   //
+  // Returns item at specific cell or false
+  //
+  Zone.prototype.getItemAtPos = function getItemAtPos(x, y, z) {
+    // Fast case
+    if (this.items.length === 0) return false;
+
+    // Binary-search
+    var cell = {
+          _sortId: -1,
+          rx: x,
+          ry: y,
+          rz: z
+        },
+        i = 0,
+        j = this.items.length - 1,
+        middle = 0;
+
+    while (i <= j) {
+      middle = (i + j) >> 1;
+      var cmp = Item.compare(cell, this.items[middle]);
+
+      if (cmp == 0) {
+        break;
+      } else if (cmp < 0) {
+        j = middle - 1;
+      } else {
+        i = middle + 1;
+      }
+    }
+
+    if (cmp > 0) {
+      middle++;
+    }
+
+    // Start searching from middle
+    for (var i = middle; i < this.items.length; i++) {
+      var item = this.items[i],
+          cmp = Item.compare(cell, item);
+
+      if (cmp > 0) break;
+      if (x === item.rx && y === item.ry && z === item.rz) return item;
+    }
+
+    return false;
+  };
+
+  //
   // Generic UI Item
   //
   var itemId = 0;
@@ -693,6 +756,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   // Run external command
   //
   Item.prototype.command = function command(cmd, options, callback) {
+    this.emit('command', cmd, options);
+
     if (cmd === 'remove') {
       this.remove();
       if (callback) callback();

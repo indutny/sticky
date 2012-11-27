@@ -9,6 +9,7 @@ define([ 'util', 'ui' ], function(util, ui) {
     this.type = 'block';
     this.sprite = null;
     this.kind = options.kind;
+    this.obstacle = true;
   };
   util.inherits(Block, ui.Item);
 
