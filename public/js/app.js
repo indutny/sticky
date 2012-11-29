@@ -87,7 +87,6 @@ require([
       } else if (code == 40) {
         p.command('move', { dx: 0, dy: 1, dz: 0 });
       } else {
-        release();
         return;
       }
 

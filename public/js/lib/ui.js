@@ -1,4 +1,4 @@
-define([ 'util', 'ee2' ], function(util, EventEmitter) {
+define([ 'util', 'events' ], function(util, EventEmitter) {
   var exports = {};
 
   //
@@ -605,6 +605,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
     this.type = null;
     this.sprite = null;
     this.obstacle = false;
+    this.gravitable = false;
+    this.falling = false;
   };
   util.inherits(Item, EventEmitter);
   exports.Item = Item;
@@ -779,6 +781,39 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   //
   Item.prototype.remove = function remove() {
     this.zone.remove(this);
+  };
+
+  //
+  // Apply gravitation
+  //
+  Item.prototype.gravitation = function gravitation(callback) {
+    if (this.falling) return;
+
+    var grnd,
+        x = this.rx,
+        y = this.ry,
+        z = this.rz;
+
+    // Find closest ground
+    for (var i = 1; !(grnd = this.ui.hasObstacle(x, y, z + i)); i++) {
+    }
+
+    // If object is already on the ground - invoke callback
+    if (grnd.rz === z + 1) {
+      if (callback) callback();
+      return;
+    }
+
+    // Animate fall
+    var self = this;
+    this.falling = true;
+    var dz = grnd.rz - z - 1;
+    this.animate({ dz: dz }, dz * 200, function() {
+      self.falling = false;
+
+      // Apply gravitation again (useful if we're falling through multiple zones
+      self.gravitation(callback);
+    });
   };
 
   //

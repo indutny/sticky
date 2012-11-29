@@ -5,7 +5,7 @@ define([ 'util', 'ui' ], function(util, ui) {
     ui.Item.call(this, options);
     this.type = 'player';
     this.moving = false;
-    this.falling = false;
+    this.gravitable = true;
   };
   util.inherits(Player, ui.Item);
 
@@ -64,39 +64,6 @@ define([ 'util', 'ui' ], function(util, ui) {
     this.animate({ dx: options.dx, dy: options.dy, dz: options.dz }, 150);
     this.animate({ dz: 0.3, sprite: this.sprites.normal }, 60, function() {
       self.moving = false;
-      self.gravitation(callback);
-    });
-  };
-
-  //
-  // Apply gravitation
-  //
-  Player.prototype.gravitation = function gravitation(callback) {
-    if (this.falling) return;
-
-    var grnd,
-        x = this.rx,
-        y = this.ry,
-        z = this.rz;
-
-    // Find closest ground
-    for (var i = 1; !(grnd = this.ui.hasObstacle(x, y, z + i)); i++) {
-    }
-
-    // If object is already on the ground - invoke callback
-    if (grnd.rz === z + 1) {
-      if (callback) callback();
-      return;
-    }
-
-    // Animate fall
-    var self = this;
-    this.falling = true;
-    var dz = grnd.rz - z - 1;
-    this.animate({ dz: dz }, dz * 200, function() {
-      self.falling = false;
-
-      // Apply gravitation again (useful if we're falling through multiple zones
       self.gravitation(callback);
     });
   };
