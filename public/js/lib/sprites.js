@@ -2,10 +2,10 @@ define(function() {
   var exports = {};
 
   var spriteUrls = {
-        block: '/img/block.png',
-        grass: '/img/grass_block.png',
-        player: '/img/player.png',
-        'player-flying': '/img/player-flying.png'
+        block: '/img/block.png#32x16',
+        grass: '/img/grass_block.png#32x16',
+        player: '/img/player.png#32x12',
+        'player-flying': '/img/player-flying.png#32x12'
       },
       spriteIds = Object.keys(spriteUrls),
       sprites = {};
@@ -13,11 +13,14 @@ define(function() {
   var left = spriteIds.length;
   spriteIds.forEach(function(id) {
     var img = new Image(),
+        match = spriteUrls[id].match(/^(.*)#(\d+)x(\d+)$/),
         once = false;
 
     sprites[id] = {
       width: 0,
       height: 0,
+      x: parseInt(match[2], 10),
+      y: parseInt(match[3], 10),
       elem: img
     };
 
@@ -29,7 +32,7 @@ define(function() {
       sprites[id].height = img.height;
       if (--left === 0) return onSprites();
     };
-    img.src = spriteUrls[id];
+    img.src = match[1];
   });
 
   var loaded = false,

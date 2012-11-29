@@ -456,7 +456,8 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
       ctx.save();
 
       var coverage;
-      if (z <= this.ui.player.rz &&
+      if (item !== this.ui.player &&
+          z <= this.ui.player.rz &&
           (coverage = item.coverage(this.ui.player))) {
         // Items covering player are transparent
         ctx.globalAlpha = coverage;
@@ -723,7 +724,13 @@ define([ 'util', 'ee2' ], function(util, EventEmitter) {
   // Render callback
   //
   Item.prototype.render = function render(ctx) {
-    // Nop
+    if (!this.sprite) return;
+
+    ctx.drawImage(this.sprite.elem,
+                  this.projectionX - this.sprite.x,
+                  this.projectionY - this.sprite.y,
+                  this.sprite.width,
+                  this.sprite.height);
   };
 
   //

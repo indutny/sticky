@@ -101,15 +101,5 @@ define([ 'util', 'ui' ], function(util, ui) {
     });
   };
 
-  Player.prototype.render = function render(ctx) {
-    Player.super_.prototype.render.call(this, ctx);
-
-    ctx.drawImage(this.sprite.elem,
-                  this.projectionX - 32,
-                  this.projectionY - 12,
-                  this.sprite.width,
-                  this.sprite.height);
-  };
-
   return exports;
 });
