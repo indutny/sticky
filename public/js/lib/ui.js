@@ -1,4 +1,4 @@
-define([ 'util', 'events' ], function(util, EventEmitter) {
+define('ui', [ 'util', 'events' ], function(util, EventEmitter) {
   var exports = {};
 
   //
